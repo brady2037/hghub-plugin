@@ -111,11 +111,61 @@ function publishHttp(req) {
   assert.ok(ids.includes('a.huangguoa.com'), '域名小写化 + 子域拼接');
   assert.ok(ids.includes('a.huangguo-2.com'), '子域拼接');
   assert.ok(ids.includes('c.huangguo-2.com'), '交错合并且子域齐全');
-  assert.ok(storage.has('endpoints:v1'), '镜像列表已持久化');
+  assert.ok(storage.has('endpoints:v2'), '含探测排序的线路列表已持久化');
+  assert.equal(list[0].id, 'main', '探测全失败时主站仍为默认线路');
   const again = await plugin.endpoints.list({}, ctx); // 走缓存
   assert.equal(again.length, list.length);
   console.log('PASS  发布页镜像解析与缓存：', ids.join(', '));
 }
+
+// 内容接口验证、有限并行、排序缓存与刷新。
+{
+  let refreshed = false;
+  let active = 0;
+  let peak = 0;
+  const { hg, calls, storage } = makeHost({ httpData: async req => {
+    if (!req.url.endsWith('/api/videos')) return publishHttp(req);
+    active++;
+    peak = Math.max(peak, active);
+    await Promise.resolve();
+    active--;
+    if (refreshed) return { status: 503 };
+    if (req.url.startsWith('https://a.huangguoa.com/')) return { data: { status: 0, data: { items: [] } } };
+    if (req.url.startsWith('https://b.huangguoa.com/')) return { data: { status: 1, data: { items: [{ id: 42, title: '示例剧' }] } } };
+    if (req.url.startsWith('https://c.huangguoa.com/')) return { data: { items: [] } };
+    return { data: { status: 1, data: { items: [{}] } } };
+  } });
+  storage.set('endpoints:v1', ['old.example.com']);
+  const plugin = module_.default(hg);
+  const list = await plugin.endpoints.list({}, ctx);
+  assert.deepEqual(list.slice(0, 3).map(e => e.id), ['b.huangguoa.com', 'c.huangguoa.com', 'main']);
+  assert.equal(new Set(list.map(e => e.id)).size, list.length);
+  assert.equal(new Set(list.map(e => e.url)).size, list.length);
+  const probes = calls.filter(c => c.url.endsWith('/api/videos'));
+  assert.equal(probes.length, 4);
+  assert.equal(peak, 4, '四个候选同时探测');
+  assert.ok(probes.every(c => c.timeoutMs === 3000 && c.signal === ctx.signal && c.redirect === 'manual'));
+  const count = calls.length;
+  assert.deepEqual(await module_.default(hg).endpoints.list({}, ctx), list);
+  assert.equal(calls.length, count, '重载后复用缓存排序，不重新联网');
+  refreshed = true;
+  const fallback = await plugin.endpoints.list({ refresh: true }, ctx);
+  assert.equal(fallback[0].id, 'main');
+}
+for (const code of ['TIMEOUT', 'CANCELLED']) {
+  const { hg, storage } = makeHost({ httpData: req => {
+    if (!req.url.endsWith('/api/videos')) return publishHttp(req);
+    throw new hg.PluginError(code, code);
+  } });
+  const discovery = () => module_.default(hg).endpoints.list({}, ctx);
+  if (code === 'CANCELLED') {
+    await assert.rejects(discovery, { code });
+    assert.equal(storage.size, 0);
+  } else {
+    assert.equal((await discovery())[0].id, 'main');
+  }
+}
+console.log('PASS  可用镜像优先、内容结构验证、并行上限、排序缓存、刷新与探测取消');
 
 // 单页请求超时不丢弃另一页结果；取消始终终止整次发现。
 for (const code of ['TIMEOUT', 'CANCELLED']) {

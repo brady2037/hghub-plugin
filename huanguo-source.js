@@ -2,7 +2,7 @@
  * 黄果短剧内容源（HGhub HPP 1.0 插件）
  *
  * 站点线路逻辑移植自 HGhubX 客户端：
- * - 固定主站 https://huangguoai.com 为默认线路；
+ * - 优先使用内容接口验证可用的镜像，固定主站 https://huangguoai.com 始终保留；
  * - 镜像线路从两个地址发布页（huangguoai.pages.dev / huang-guo.pages.dev）的
  *   publish.js 中以「JS-as-data」方式解析（词法器只接受顶层字面量字符串数组
  *   `urls` / `subdomains`，绝不执行远端脚本），交错去重后与主站合并；
@@ -33,8 +33,11 @@ const MAIN_HOST = 'huangguoai.com';
 const PUBLISH_PAGES = ['https://huangguoai.pages.dev/', 'https://huang-guo.pages.dev/'];
 const MIRROR_MAX = 60;                 // 线路总数上限（含主站）
 const PUBLISH_ARRAY_MAX = 256;         // 发布脚本单个数组的长度上限
-const ENDPOINTS_KEY = 'endpoints:v1';  // 镜像列表的持久缓存键
+const ENDPOINTS_KEY = 'endpoints:v2';  // 含探测排序的完整线路列表
 const ENDPOINTS_TTL_SEC = 3600;
+const PROBE_MAX = 4;
+const PROBE_TIMEOUT_MS = 3000;
+const PROBE_RESERVE_MS = 1000;
 const PAGE_TIMEOUT_MS = 8000;
 const PAGE_MAX_BYTES = 512 * 1024;
 const LIST_SIZE = 20;
@@ -395,12 +398,28 @@ export default hg => {
 
   const hostToEndpoint = host => ({ id: host, label: host, url: `https://${host}` });
 
+  async function probeMirror(host, ctx, maximum) {
+    const response = await hg.http.fetch({
+      url: `https://${host}/api/videos`,
+      query: { page: 1, size: 1 },
+      responseType: 'json',
+      timeoutMs: timeoutMs(ctx, maximum),
+      signal: ctx.signal,
+      credentials: 'omit',
+      redirect: 'manual',
+      maxBytes: PAGE_MAX_BYTES,
+    });
+    if (!response.ok) return false;
+    const data = unwrap(response.data);
+    return !!data && Array.isArray(data.items) && data.items.every(item => cardOf(item) !== null);
+  }
+
   async function listEndpoints(params, ctx) {
     const fixed = [{ id: 'main', label: '主站（固定线路）', url: MAIN }];
     if (!params.refresh) {
       const cached = await hg.storage.get(ENDPOINTS_KEY);
       if (Array.isArray(cached) && cached.length) {
-        return fixed.concat(cached.map(hostToEndpoint));
+        return cached;
       }
     }
     const results = await Promise.allSettled(PUBLISH_PAGES.map(page => mirrorsFromPage(page, ctx)));
@@ -417,8 +436,21 @@ export default hg => {
       console.warn('[huanguo] 镜像刷新失败：', errors || '发布页无可用镜像');
       return fixed; // 无缓存且刷新失败时仍返回固定主站，保证列表非空
     }
-    await hg.storage.set(ENDPOINTS_KEY, hosts, { ttlSec: ENDPOINTS_TTL_SEC });
-    return fixed.concat(hosts.map(hostToEndpoint));
+    const probeBudget = ctx.deadline === null
+      ? PROBE_TIMEOUT_MS
+      : Math.min(PROBE_TIMEOUT_MS, Math.floor(ctx.deadline - Date.now()) - PROBE_RESERVE_MS);
+    const candidates = hosts.slice(0, PROBE_MAX);
+    const probes = probeBudget > 0
+      ? await Promise.allSettled(candidates.map(host => probeMirror(host, ctx, probeBudget)))
+      : [];
+    const stopped = probes.find(r => r.status === 'rejected' && r.reason && r.reason.code === 'CANCELLED');
+    if (stopped) throw stopped.reason;
+    timeoutMs(ctx, PAGE_TIMEOUT_MS);
+    const available = new Set(candidates.filter((host, i) => probes[i]?.status === 'fulfilled' && probes[i].value));
+    const endpoints = hosts.filter(host => available.has(host)).map(hostToEndpoint)
+      .concat(fixed, hosts.filter(host => !available.has(host)).map(hostToEndpoint));
+    await hg.storage.set(ENDPOINTS_KEY, endpoints, { ttlSec: ENDPOINTS_TTL_SEC });
+    return endpoints;
   }
 
   /* ───────── 数据映射 ───────── */
