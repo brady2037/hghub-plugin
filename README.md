@@ -23,11 +23,11 @@
 
 在 HGhub **插件中心 → 导入与订阅** 粘贴下面任一 HTTPS 地址。清单中的插件路径为相对路径，会按清单最终 URL 解析。
 
-| 列表 | 内容 | GitHub Raw | jsDelivr |
-| --- | --- | --- | --- |
-| 黄果短剧 | 单个内容源（成人内容） | `https://raw.githubusercontent.com/brady2037/hghub-plugin/main/manifest.json` | `https://cdn.jsdelivr.net/gh/brady2037/hghub-plugin@main/manifest.json` |
+| 列表     | 内容            | GitHub Raw                                                                    | jsDelivr                                                                |
+| -------- | --------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 黄果短剧 | 1个源（含成人） | `https://raw.githubusercontent.com/brady2037/hghub-plugin/main/manifest.json` | `https://cdn.jsdelivr.net/gh/brady2037/hghub-plugin@main/manifest.json` |
 
-以上地址按仓库 `main` 分支、清单与插件文件位于仓库根目录编写；对应文件推送后方可使用。GitHub Raw 若打不开，可尝试 jsDelivr。
+推荐先订 **jsDelivr**。成人列表需在设置里打开成人内容后再导入。若打不开，再改用 GitHub Raw 。
 
 仓库首页：<https://github.com/brady2037/hghub-plugin>
 
@@ -40,13 +40,6 @@
 5. 从首页、分类或搜索进入详情，选集播放。
 
 订阅后可手动刷新列表。同 ID 的更高版本可用于更新，同版本覆盖可用于调试。更新时需同步修改源码 `meta.version` 与清单条目的 `version`，并保持两处 ID 一致。
-
-### 单独导入插件
-
-无需导入清单时，可直接粘贴插件 JS 的 HTTPS 地址：
-
-- GitHub Raw：`https://raw.githubusercontent.com/brady2037/hghub-plugin/main/huanguo-source.js`
-- jsDelivr：`https://cdn.jsdelivr.net/gh/brady2037/hghub-plugin@main/huanguo-source.js`
 
 ### 本地导入
 
@@ -77,32 +70,7 @@ Android 本地导入请直接选择 JS，不要选择本地 `manifest.json`：�
 - 镜像列表缓存一小时。单页失败不丢弃另一页的成功结果；均不可用且调用预算未耗尽时返回固定主站。取消或总预算耗尽会终止调用。
 - 主播放接口为 `POST /api/videos/{id}/episodes/{ep}/playback`。仅在接口不支持或成功响应没有可识别地址时，回退 `GET /api/videos/{id}/play`。
 - 认证、网络、取消、超时等错误直接传播。两种接口均未返回地址时报告 `UPSTREAM_CHANGED`。
-- 分页状态编码在 JSON 游标中，不依赖插件运行时闭包保存页码；后续请求使用当前调用的剩余预算。
-
-## 验证
-
-### 本地模拟测试
-
-在 HGhub 仓库根目录执行，需要可用的 Node.js，无需额外安装测试依赖：
-
-```powershell
-node hghub-plugin/sim.test.mjs
-```
-
-测试文件为 [sim.test.mjs](./sim.test.mjs)，覆盖元信息与清单一致性、模块导入、能力对象、镜像解析与缓存、危险发布脚本拒绝、断网与局部超时、取消传播、分页、封面参数、详情和评论映射、播放回退、错误分类及串行请求预算。
-
-当前全部 Node 模拟用例通过。此前已核对真实上游的搜索、分类、详情、评论和主播放响应，并验证封面解密样本；这些记录不代表上游始终可用。
-
-### 应用内验收
-
-以下项目尚未完成真实 QuickJS / HGhub 页面链路 / 原生设备验收，可按此顺序检查：
-
-1. 单独导入 JS，确认名称、ID、版本及能力发现正确。
-2. 重复导入同一文件，确认按同 ID 覆盖而非新增重复插件。
-3. 打开首页、分类和搜索，翻页后重载插件，再使用已有游标继续请求。
-4. 打开详情，确认封面、分集、评论正确，作品与分集 ID 保持上游身份。
-5. 选择不同线路并播放，检查 HLS 请求和实际音画；分别验证 H.264 与 HEVC 样本。
-6. 验证取消操作、不可用线路及超时反馈。
+- 分页状态编码在 JSON 游标中，不依赖插件运行时闭包保存页码；后续请求使用当前调用的剩余预算。 
 
 ## 目录说明
 
