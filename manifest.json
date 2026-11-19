@@ -1,0 +1,13 @@
+{
+  "name": "HGhub 黄果短剧插件",
+  "description": "Android 本地导入请直接选择 huanguo-source.js；本地 manifest 相对路径当前不可用。",
+  "plugins": [
+    {
+      "id": "hghub.huangguo",
+      "name": "黄果短剧",
+      "version": "1.0.1",
+      "description": "主站 + 发布页镜像线路，短剧/漫剧浏览、搜索与 HLS 播放。",
+      "url": "huanguo-source.js"
+    }
+  ]
+}
