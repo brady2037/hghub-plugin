@@ -19,20 +19,40 @@
 
 ## 导入与订阅
 
+### 订阅地址
+
+在 HGhub **插件中心 → 导入与订阅** 粘贴下面任一 HTTPS 地址。清单中的插件路径为相对路径，会按清单最终 URL 解析。
+
+| 列表 | 内容 | GitHub Raw | jsDelivr |
+| --- | --- | --- | --- |
+| 黄果短剧 | 单个内容源（成人内容） | `https://raw.githubusercontent.com/brady2037/hghub-plugin/main/manifest.json` | `https://cdn.jsdelivr.net/gh/brady2037/hghub-plugin@main/manifest.json` |
+
+以上地址按仓库 `main` 分支、清单与插件文件位于仓库根目录编写；对应文件推送后方可使用。GitHub Raw 若打不开，可尝试 jsDelivr。
+
+仓库首页：<https://github.com/brady2037/hghub-plugin>
+
+### 导入步骤
+
+1. 在 HGhub 设置中开启成人内容显示。
+2. 打开 **插件中心 → 导入与订阅**，粘贴上表中的 HTTPS 地址。
+3. 预览元信息，勾选 **黄果短剧**，检查 ID 为 `hghub.huangguo`、版本为 `1.0.1`，确认安装。
+4. 确认插件状态为 **已就绪**。
+5. 从首页、分类或搜索进入详情，选集播放。
+
+订阅后可手动刷新列表。同 ID 的更高版本可用于更新，同版本覆盖可用于调试。更新时需同步修改源码 `meta.version` 与清单条目的 `version`，并保持两处 ID 一致。
+
+### 单独导入插件
+
+无需导入清单时，可直接粘贴插件 JS 的 HTTPS 地址：
+
+- GitHub Raw：`https://raw.githubusercontent.com/brady2037/hghub-plugin/main/huanguo-source.js`
+- jsDelivr：`https://cdn.jsdelivr.net/gh/brady2037/hghub-plugin@main/huanguo-source.js`
+
 ### 本地导入
 
-1. 打开 HGhub → **插件中心 → 导入与订阅**。
-2. 选择本目录的 `huanguo-source.js`。
-3. 检查预览名称为 **黄果短剧**、ID 为 `hghub.huangguo`、版本为 `1.0.1`，确认安装。
-4. 确认插件状态为 **已就绪**，再从首页、分类或搜索进入作品详情。
+下载 `huanguo-source.js` 后，在 **插件中心 → 导入与订阅** 中选择该文件，检查元信息并确认安装。
 
-Android 本地导入请直接选择 JS。当前 Android 文件选择器不能通过本地 `manifest.json` 读取同目录的相对路径插件文件。桌面端本地清单可使用相对路径。
-
-### HTTPS 导入与订阅
-
-本目录尚未配置可用的公开订阅地址。自行托管时，将 `manifest.json` 和 `huanguo-source.js` 放在同一 HTTPS 目录，然后在 HGhub 导入清单的 HTTPS 地址。清单中的 `url: "huanguo-source.js"` 会相对于清单最终地址解析；也可直接导入该 JS 的 HTTPS 地址。
-
-同 ID 的更高版本可用于更新，同版本覆盖可用于调试。更新时需同步修改源码 `meta.version` 与清单条目的 `version`，并保持两处 ID 一致。
+Android 本地导入请直接选择 JS，不要选择本地 `manifest.json`：当前文件选择器不能读取同目录的相对路径插件文件。桌面端本地清单可使用相对路径。
 
 ## 支持能力
 
@@ -52,8 +72,8 @@ Android 本地导入请直接选择 JS。当前 Android 文件选择器不能通
 
 ## 线路与播放
 
-- 固定主站为 `https://huangguoai.com`；可在插件详情页选择其他线路。
-- 镜像来自 `https://huangguoai.pages.dev/` 与 `https://huang-guo.pages.dev/` 的发布脚本，仅解析受限字符串数组，不执行远程脚本。
+- 默认使用插件内置的固定主站，可在插件详情页选择其他线路。
+- 镜像通过两个内置发布页的发布脚本发现，仅解析受限字符串数组，不执行远程脚本。
 - 镜像列表缓存一小时。单页失败不丢弃另一页的成功结果；均不可用且调用预算未耗尽时返回固定主站。取消或总预算耗尽会终止调用。
 - 主播放接口为 `POST /api/videos/{id}/episodes/{ep}/playback`。仅在接口不支持或成功响应没有可识别地址时，回退 `GET /api/videos/{id}/play`。
 - 认证、网络、取消、超时等错误直接传播。两种接口均未返回地址时报告 `UPSTREAM_CHANGED`。
