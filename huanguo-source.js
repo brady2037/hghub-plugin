@@ -20,6 +20,10 @@ export const meta = {
   protocol: 1,
   kind: 'source',
   mature: true,
+  defaultHeaders: {
+    Referer: 'https://huangguoai.com/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  },
   description: '黄果短剧内容源：主站 + 发布页镜像线路，短剧/漫剧浏览、搜索与 HLS 播放。',
 };
 
